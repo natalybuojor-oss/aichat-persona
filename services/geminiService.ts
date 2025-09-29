@@ -32,11 +32,14 @@ export const startChat = (persona: Persona, language:string): Chat | null => {
 export const sendMessage = async (persona: Persona, language: string, message: string): Promise<string> => {
   const t = translations[language as keyof typeof translations] || translations['en'];
 
-  // Эта простая проверка нужна на случай, если пользователь забудет заменить URL.
-  if (GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-    console.error("Google Apps Script URL is not set. Please follow the instructions in README.md.");
-    return t.configError as string;
+  if (GOOGLE_SCRIPT_URL === 'ВАШ_URL_ВЕБ_ПРИЛОЖЕНИЯ_ЗДЕСЬ' || !GOOGLE_SCRIPT_URL.includes('/exec')) {
+     const errorMsg = GOOGLE_SCRIPT_URL.includes('script.google.com') && !GOOGLE_SCRIPT_URL.includes('/exec') 
+       ? t.configErrorUrl as string
+       : t.configError as string;
+    console.error(errorMsg);
+    return errorMsg;
   }
+
 
   try {
     const systemInstruction = (t[persona.systemPromptKey] || translations['en'][persona.systemPromptKey]) as string;
@@ -57,7 +60,6 @@ export const sendMessage = async (persona: Persona, language: string, message: s
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error from Google Apps Script Backend:", { status: response.status, body: errorText });
-      // Статус 0 или непрозрачный ответ часто указывают на ошибку CORS.
       if(response.status === 0 || response.type === 'opaque'){
          return t.networkError as string;
       }
@@ -69,7 +71,7 @@ export const sendMessage = async (persona: Persona, language: string, message: s
     if (result.error) {
       const errorMessage = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
       console.error("Application error from Google Apps Script:", errorMessage);
-      return `${t.backendError as string}: ${errorMessage}. ${t.backendErrorCheckLogs as string}`;
+      return `${t.backendError as string}: ${errorMessage}.`;
     }
 
     const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -82,10 +84,41 @@ export const sendMessage = async (persona: Persona, language: string, message: s
     return text;
   } catch (error) {
     console.error("Error sending message via Google Apps Script proxy:", error);
-    // TypeError часто указывает на проблему с CORS или сетью
     if (error instanceof TypeError) {
         return t.networkError as string;
     }
     return t.connectionError as string;
+  }
+};
+
+/**
+ * Отправляет анонимный лог о посещении приложения на бэкенд Google Apps Script.
+ * Эта функция "fire-and-forget" - она не блокирует UI и не показывает ошибки пользователю.
+ */
+export const logAppVisit = async (): Promise<void> => {
+  if (GOOGLE_SCRIPT_URL === 'ВАШ_URL_ВЕБ_ПРИЛОЖЕНИЯ_ЗДЕСЬ' || !GOOGLE_SCRIPT_URL.includes('/exec')) {
+    console.log("Visit logging disabled: Google Apps Script URL is not set correctly.");
+    return;
+  }
+
+  try {
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify({
+        action: 'logVisit',
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        referrer: document.referrer,
+      }),
+      redirect: 'follow',
+    });
+    // Мы не ждем и не анализируем ответ, чтобы не замедлять работу приложения.
+  } catch (error) {
+    // Ошибки логирования не должны влиять на пользователя, просто выводим их в консоль.
+    console.error("Error logging app visit:", error);
   }
 };

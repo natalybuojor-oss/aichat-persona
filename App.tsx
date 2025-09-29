@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Persona } from './types';
 import { PERSONAS } from './constants';
 import PersonaSelection from './components/PersonaSelection';
 import ChatView from './components/ChatView';
 import { translations } from './localization/translations';
+import { logAppVisit } from './services/geminiService';
 
 const App: React.FC = () => {
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
-  const [language, setLanguage] = useState<string>('en');
+  const [language, setLanguage] = useState<string>('ru'); // Default language set to Russian
+
+  useEffect(() => {
+    // Логируем посещение приложения при первом монтировании компонента
+    logAppVisit();
+  }, []); // Пустой массив зависимостей гарантирует, что это выполнится только один раз
 
   const handleSelectPersona = (persona: Persona) => {
     setSelectedPersona(persona);
