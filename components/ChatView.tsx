@@ -42,25 +42,32 @@ const ChatView: React.FC<ChatViewProps> = ({ persona, onBack, language }) => {
   };
 
   useEffect(() => {
-    const generateInitialMessage = async () => {
+    const showInitialMessage = () => {
       setMessages([]);
-      setIsLoading(true);
-      chatRef.current = startChat(persona, language);
+      setIsLoading(true); // Show the three dots immediately
+      chatRef.current = startChat(persona, language); // Dummy initialization
 
-      const initialPrompt = t.initialPrompt as string;
-      const responseText = await sendMessage(persona, language, initialPrompt);
-      
-      const messageId = Date.now().toString();
-      const initialMessage: ChatMessage = {
-        id: messageId,
-        text: '', 
-        sender: 'ai',
-      };
-      setMessages([initialMessage]);
-      typeOutMessage(responseText, messageId);
+      // Wait for 3 seconds before showing the message
+      const timer = setTimeout(() => {
+        const greetingTemplate = t.initialGreeting as string;
+        const initialText = greetingTemplate.replace('{personaName}', personaName);
+        
+        const messageId = Date.now().toString();
+        const initialMessage: ChatMessage = {
+          id: messageId,
+          text: '', // Start with empty text for the typing effect
+          sender: 'ai',
+        };
+        setMessages([initialMessage]);
+
+        // Start the typing animation for the static message
+        typeOutMessage(initialText, messageId);
+      }, 3000);
+
+      return () => clearTimeout(timer);
     };
 
-    generateInitialMessage();
+    showInitialMessage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persona, language]);
 
